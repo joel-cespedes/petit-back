@@ -130,17 +130,16 @@ class LoginRequest(BaseModel):
 
 
 @app.post("/api/auth/login")
-def login(data: LoginRequest, db: Session = Depends(get_db)):
-    """Login and get JWT token - checks database"""
-    result = db.execute(
-        text("SELECT username, password_hash FROM admin_users WHERE username = :username"),
-        {"username": data.username}
-    ).fetchone()
+def login(data: LoginRequest):
+    """Login and get JWT token"""
+    # Credentials hardcoded in backend for security
+    ADMIN_USER = "pttadmin"
+    ADMIN_HASH = "$2b$12$u1gca2iaMs4syHZuvQ04kOaTXk/VQEAvEPmTuU/FHbcL60OhR7iXe"
 
-    if not result:
+    if data.username != ADMIN_USER:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not verify_password(data.password, result.password_hash):
+    if not verify_password(data.password, ADMIN_HASH):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_token(data.username)
