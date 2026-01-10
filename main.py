@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Create uploads directory in frontend's public folder
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "uploads")
+# Create uploads directory
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="Jhair API", version="1.0.0")
