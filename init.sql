@@ -244,6 +244,7 @@ CREATE TABLE service_single_page (
     sidebar_contact_link_en VARCHAR(100),
     sidebar_contact_link_es VARCHAR(100),
     sidebar_contact_link_nl VARCHAR(100),
+    sidebar_contact_url VARCHAR(500),
 
     -- Request service form
     form_title_en VARCHAR(255),
