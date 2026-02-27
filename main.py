@@ -532,6 +532,8 @@ def admin_create_service(
     db: Session = Depends(get_db)
 ):
     """Create new service"""
+    max_order = db.execute(text("SELECT COALESCE(MAX(sort_order), 0) FROM services")).scalar()
+    data["sort_order"] = max_order + 1
     columns = ", ".join(data.keys())
     values = ", ".join([f":{key}" for key in data.keys()])
     query = text(f"INSERT INTO services ({columns}) VALUES ({values}) RETURNING id")
