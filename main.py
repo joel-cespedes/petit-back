@@ -378,6 +378,8 @@ def send_contact_email(to_email: str, name: str, from_email: str, message: str):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            # User-Agent explícito: el de Python-urllib lo bloquea Cloudflare (error 1010).
+            "User-Agent": "Bucare-Backend/1.0",
         },
         method="POST",
     )
@@ -416,13 +418,10 @@ def submit_contact(data: ContactMessage, db: Session = Depends(get_db)):
     to_email = (row[0] if row else None) or os.getenv("CONTACT_FALLBACK_EMAIL")
 
     email_sent = False
-    email_error = None
     if to_email:
-        email_sent, email_error = send_contact_email(to_email, data.name, data.email, data.message)
-    else:
-        email_error = "no to_email configured"
+        email_sent, _err = send_contact_email(to_email, data.name, data.email, data.message)
 
-    return {"success": True, "email_sent": email_sent, "debug_error": email_error}
+    return {"success": True, "email_sent": email_sent}
 
 
 # =============================================
