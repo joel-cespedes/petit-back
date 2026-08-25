@@ -195,7 +195,11 @@ def get_blog_single_page(lang: str = Query("en"), db: Session = Depends(get_db))
 @app.get("/api/about")
 def get_about_page(lang: str = Query("en"), db: Session = Depends(get_db)):
     validate_lang(lang)
-    return get_page_content(db, "about_page", lang)
+    data = get_page_content(db, "about_page", lang)
+    data["team_members"] = get_dynamic_content(
+        db, "team_members", lang, order_by="sort_order, id"
+    )
+    return data
 
 
 # =============================================
@@ -573,6 +577,79 @@ def admin_delete_service(id: int, username: str = Depends(verify_token), db: Ses
 
     query = text("DELETE FROM services WHERE id = :id")
     db.execute(query, {"id": id})
+    db.commit()
+    return {"success": True}
+
+
+# =============================================
+# ADMIN ENDPOINTS - TEAM MEMBERS CRUD (Protected)
+# =============================================
+
+@app.get("/api/admin/team-members")
+def admin_get_team_members(username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Get all team members for admin"""
+    query = text("SELECT * FROM team_members ORDER BY sort_order, id")
+    result = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
+
+
+@app.get("/api/admin/team-members/{id}")
+def admin_get_team_member(id: int, username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Get single team member by ID"""
+    query = text("SELECT * FROM team_members WHERE id = :id")
+    result = db.execute(query, {"id": id}).fetchone()
+    if not result:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    return dict(result._mapping)
+
+
+@app.post("/api/admin/team-members")
+def admin_create_team_member(
+    data: dict = Body(...),
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """Create new team member"""
+    clean_update_data(data)
+    max_order = db.execute(text("SELECT COALESCE(MAX(sort_order), 0) FROM team_members")).scalar()
+    data["sort_order"] = max_order + 1
+    columns = ", ".join(data.keys())
+    values = ", ".join([f":{key}" for key in data.keys()])
+    query = text(f"INSERT INTO team_members ({columns}) VALUES ({values}) RETURNING id")
+    result = db.execute(query, data)
+    db.commit()
+    return {"success": True, "id": result.fetchone()[0]}
+
+
+@app.put("/api/admin/team-members/{id}")
+def admin_update_team_member(
+    id: int,
+    data: dict = Body(...),
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """Update team member"""
+    cleanup_replaced_images(db, "team_members", id, data)
+    clean_update_data(data)
+    set_clauses = ", ".join([f"{key} = :{key}" for key in data.keys()])
+    query = text(f"UPDATE team_members SET {set_clauses}, updated_at = NOW() WHERE id = :id")
+    data["id"] = id
+    db.execute(query, data)
+    db.commit()
+    return {"success": True}
+
+
+@app.delete("/api/admin/team-members/{id}")
+def admin_delete_team_member(id: int, username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Delete team member"""
+    record = db.execute(text("SELECT * FROM team_members WHERE id = :id"), {"id": id}).fetchone()
+    if record:
+        row = dict(record._mapping)
+        for field in IMAGE_FIELDS:
+            if field in row and row[field]:
+                delete_old_image(row[field])
+
+    db.execute(text("DELETE FROM team_members WHERE id = :id"), {"id": id})
     db.commit()
     return {"success": True}
 

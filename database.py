@@ -61,13 +61,15 @@ def get_page_content(db, table_name: str, lang: str):
     return filtered
 
 
-def get_dynamic_content(db, table_name: str, lang: str, where_clause: str = None):
+def get_dynamic_content(db, table_name: str, lang: str, where_clause: str = None, order_by: str = None):
     """
     Get content from a dynamic table (services, blogs) with language filtering.
     """
     query = f"SELECT * FROM {table_name}"
     if where_clause:
         query += f" WHERE {where_clause}"
+    if order_by:
+        query += f" ORDER BY {order_by}"
 
     result = db.execute(text(query)).fetchall()
 

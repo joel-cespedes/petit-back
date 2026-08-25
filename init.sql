@@ -321,6 +321,71 @@ CREATE TABLE services (
 -- /about
 -- =============================================
 
+-- Team members (perfiles de /about). Antes era una fila unica
+-- dentro de about_page; ver migrations/001_team_members.sql
+CREATE TABLE IF NOT EXISTS team_members (
+    id SERIAL PRIMARY KEY,
+
+    -- Perfil
+    profile_image VARCHAR(500),
+    name VARCHAR(255),
+    title_en VARCHAR(255),
+    title_es VARCHAR(255),
+    title_nl VARCHAR(255),
+
+    -- Contacto
+    phone VARCHAR(100),
+    email VARCHAR(255),
+    experience_en VARCHAR(100),
+    experience_es VARCHAR(100),
+    experience_nl VARCHAR(100),
+    address_en TEXT,
+    address_es TEXT,
+    address_nl TEXT,
+
+    -- Redes sociales
+    social_facebook VARCHAR(500),
+    social_twitter VARCHAR(500),
+    social_linkedin VARCHAR(500),
+    social_pinterest VARCHAR(500),
+    social_instagram VARCHAR(500),
+
+    -- Secciones de contenido (por persona)
+    about_title_en VARCHAR(255),
+    about_title_es VARCHAR(255),
+    about_title_nl VARCHAR(255),
+    about_content_en TEXT,
+    about_content_es TEXT,
+    about_content_nl TEXT,
+
+    experience_title_en VARCHAR(255),
+    experience_title_es VARCHAR(255),
+    experience_title_nl VARCHAR(255),
+    experience_content_en TEXT,
+    experience_content_es TEXT,
+    experience_content_nl TEXT,
+
+    education_title_en VARCHAR(255),
+    education_title_es VARCHAR(255),
+    education_title_nl VARCHAR(255),
+    education_content_en TEXT,
+    education_content_es TEXT,
+    education_content_nl TEXT,
+
+    achievements_title_en VARCHAR(255),
+    achievements_title_es VARCHAR(255),
+    achievements_title_nl VARCHAR(255),
+    achievements_content_en TEXT,
+    achievements_content_es TEXT,
+    achievements_content_nl TEXT,
+
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_members_sort ON team_members (sort_order, id);
+
 CREATE TABLE about_page (
     id SERIAL PRIMARY KEY,
 

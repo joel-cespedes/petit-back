@@ -5,3 +5,5 @@ __pycache__/
 .env
 uploads/*
 !uploads/.gitkeep
+.DS_Store
+migrations/backup_*.json
