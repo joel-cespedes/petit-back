@@ -202,6 +202,12 @@ def get_about_page(lang: str = Query("en"), db: Session = Depends(get_db)):
     return data
 
 
+@app.get("/api/contact-page")
+def get_contact_page(lang: str = Query("en"), db: Session = Depends(get_db)):
+    validate_lang(lang)
+    return get_page_content(db, "contact_page", lang)
+
+
 # =============================================
 # PUBLIC ENDPOINTS - DYNAMIC CONTENT
 # =============================================
@@ -331,6 +337,95 @@ def submit_service_request(data: ServiceRequest, db: Session = Depends(get_db)):
     result = db.execute(query, data.model_dump())
     db.commit()
     return {"success": True, "id": result.fetchone()[0]}
+
+
+class ContactMessage(BaseModel):
+    name: str
+    email: str
+    message: str
+    captcha_a: int
+    captcha_b: int
+    captcha_answer: int
+
+
+def send_contact_email(to_email: str, name: str, from_email: str, message: str):
+    """Send the contact form notification via Resend. Returns (ok, error)."""
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        return False, "RESEND_API_KEY not configured"
+
+    # Remitente: idealmente un dominio verificado en Resend (ej. contact@bucareconsultancy.com).
+    # Fallback al dominio de pruebas de Resend si no se ha configurado uno propio.
+    sender = os.getenv("RESEND_FROM", "Bucare Consultancy <onboarding@resend.dev>")
+
+    import json as _json
+    import urllib.request as _urlreq
+    import urllib.error as _urlerr
+
+    payload = {
+        "from": sender,
+        "to": [to_email],
+        "reply_to": from_email,
+        "subject": f"New contact message from {name}",
+        "html": (
+            f"<h2>New contact form submission</h2>"
+            f"<p><strong>Name:</strong> {name}</p>"
+            f"<p><strong>Email:</strong> {from_email}</p>"
+            f"<p><strong>Message:</strong></p>"
+            f"<p>{message}</p>"
+        ),
+    }
+
+    req = _urlreq.Request(
+        "https://api.resend.com/emails",
+        data=_json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            # User-Agent explícito: el de Python-urllib lo bloquea Cloudflare (error 1010).
+            "User-Agent": "Bucare-Backend/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=15) as resp:
+            if 200 <= resp.status < 300:
+                return True, None
+            return False, f"Resend status {resp.status}"
+    except _urlerr.HTTPError as e:
+        return False, f"Resend HTTP {e.code}: {e.read().decode('utf-8', 'ignore')}"
+    except Exception as e:
+        return False, str(e)
+
+
+@app.post("/api/contact")
+def submit_contact(data: ContactMessage, db: Session = Depends(get_db)):
+    # Validación de captcha (suma) en el servidor — no confiar solo en el cliente
+    if data.captcha_answer != data.captcha_a + data.captcha_b:
+        raise HTTPException(status_code=400, detail="Captcha incorrect")
+
+    # Validación básica de campos
+    if not data.name.strip() or not data.email.strip() or not data.message.strip():
+        raise HTTPException(status_code=400, detail="All fields are required")
+    if "@" not in data.email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    # Guardar el mensaje siempre (aunque el email falle, no se pierde)
+    db.execute(
+        text("INSERT INTO contact_messages (name, email, message) VALUES (:name, :email, :message)"),
+        {"name": data.name, "email": data.email, "message": data.message},
+    )
+    db.commit()
+
+    # Destino del correo: configurable desde el admin (contact_page.email_to)
+    row = db.execute(text("SELECT email_to FROM contact_page WHERE id = 1")).fetchone()
+    to_email = (row[0] if row else None) or os.getenv("CONTACT_FALLBACK_EMAIL")
+
+    email_sent = False
+    if to_email:
+        email_sent, _err = send_contact_email(to_email, data.name, data.email, data.message)
+
+    return {"success": True, "email_sent": email_sent}
 
 
 # =============================================
@@ -466,6 +561,35 @@ def admin_update_about_page(
     db.execute(query, data)
     db.commit()
     return {"success": True}
+
+
+@app.get("/api/admin/contact-page")
+def admin_get_contact_page(username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    return get_all_columns(db, "contact_page")
+
+
+@app.put("/api/admin/contact-page")
+def admin_update_contact_page(
+    data: dict = Body(...),
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    if not data:
+        raise HTTPException(status_code=400, detail="No data provided")
+    cleanup_replaced_images(db, "contact_page", 1, data)
+    clean_update_data(data)
+    set_clauses = ", ".join([f"{key} = :{key}" for key in data.keys()])
+    query = text(f"UPDATE contact_page SET {set_clauses}, updated_at = NOW() WHERE id = 1")
+    db.execute(query, data)
+    db.commit()
+    return {"success": True}
+
+
+@app.get("/api/admin/contact-messages")
+def admin_get_contact_messages(username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    query = text("SELECT * FROM contact_messages ORDER BY created_at DESC")
+    result = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
 
 
 @app.put("/api/admin/blog-page")
