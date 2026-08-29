@@ -8,7 +8,7 @@ from typing import Optional
 import os
 import uuid
 import shutil
-from database import get_db, get_page_content, get_dynamic_content, get_single_item, get_services_list, get_service_by_slug, engine
+from database import get_db, get_page_content, get_dynamic_content, get_single_item, get_services_list, get_service_by_slug, get_blog_by_slug, engine
 from auth import verify_password, create_token, verify_token, hash_password
 from dotenv import load_dotenv
 
@@ -254,7 +254,7 @@ def get_blogs(
         total = db.execute(count_query, {"tag": tag}).scalar()
 
         query = text(f"""
-            SELECT b.id, b.slug, b.title_{lang} as title, b.description_{lang} as description,
+            SELECT b.id, b.slug, b.slug_en, b.slug_es, b.slug_nl, b.title_{lang} as title, b.description_{lang} as description,
                    b.image_url, b.thumbnail_url, b.published_at, b.is_published
             FROM blogs b
             JOIN blog_tags bt ON b.id = bt.blog_id
@@ -270,7 +270,7 @@ def get_blogs(
         total = db.execute(count_query).scalar()
 
         query = text(f"""
-            SELECT id, slug, title_{lang} as title, description_{lang} as description,
+            SELECT id, slug, slug_en, slug_es, slug_nl, title_{lang} as title, description_{lang} as description,
                    image_url, thumbnail_url, published_at, is_published
             FROM blogs
             WHERE is_published = true
@@ -279,7 +279,20 @@ def get_blogs(
         """)
         result = db.execute(query, {"limit": per_page, "offset": offset}).fetchall()
 
-    blogs = [dict(row._mapping) for row in result]
+    blogs = []
+    for row in result:
+        m = row._mapping
+        d = dict(m)
+        slug_map = {
+            "en": m["slug_en"] or m["slug"],
+            "es": m["slug_es"] or m["slug"],
+            "nl": m["slug_nl"] or m["slug"],
+        }
+        d["slugs"] = slug_map
+        d["slug"] = slug_map.get(lang) or m["slug"]
+        for k in ("slug_en", "slug_es", "slug_nl"):
+            d.pop(k, None)
+        blogs.append(d)
     total_pages = (total + per_page - 1) // per_page  # Ceiling division
 
     return {
@@ -296,19 +309,18 @@ def get_blogs(
 @app.get("/api/blogs/{slug}")
 def get_blog(slug: str, lang: str = Query("en"), db: Session = Depends(get_db)):
     validate_lang(lang)
-    blog = get_single_item(db, "blogs", lang, slug)
+    blog = get_blog_by_slug(db, lang, slug)
     if not blog:
         raise HTTPException(status_code=404, detail="Blog not found")
 
-    # Get tags for this blog
+    # Tags del blog (por id: el slug de la URL puede ser de otro idioma)
     tags_query = text(f"""
         SELECT t.id, t.slug, t.name_{lang} as name
         FROM tags t
         JOIN blog_tags bt ON t.id = bt.tag_id
-        JOIN blogs b ON bt.blog_id = b.id
-        WHERE b.slug = :slug
+        WHERE bt.blog_id = :bid
     """)
-    tags_result = db.execute(tags_query, {"slug": slug}).fetchall()
+    tags_result = db.execute(tags_query, {"bid": blog["id"]}).fetchall()
     blog["tags"] = [dict(row._mapping) for row in tags_result]
 
     return blog
@@ -896,6 +908,10 @@ def admin_create_blog(
     # Extract tag_ids (handled separately via blog_tags table)
     tag_ids = data.pop("tag_ids", None)
     data.pop("tags", None)
+
+    # La columna legacy `slug` es NOT NULL UNIQUE; rellenar si solo llegan slugs por idioma.
+    if not data.get("slug"):
+        data["slug"] = data.get("slug_en") or data.get("slug_nl") or data.get("slug_es") or ""
 
     columns = ", ".join(data.keys())
     values = ", ".join([f":{key}" for key in data.keys()])

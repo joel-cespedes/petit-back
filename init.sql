@@ -591,6 +591,9 @@ CREATE TABLE blog_single_page (
 CREATE TABLE blogs (
     id SERIAL PRIMARY KEY,
     slug VARCHAR(255) NOT NULL UNIQUE,
+    slug_en VARCHAR(255),
+    slug_es VARCHAR(255),
+    slug_nl VARCHAR(255),
 
     title_en VARCHAR(500),
     title_es VARCHAR(500),

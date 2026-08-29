@@ -179,3 +179,17 @@ def get_service_by_slug(db, lang, slug):
     data = _filter_row_lang(m, lang)
     _attach_service_slugs(m, data, lang)
     return data
+
+def get_blog_by_slug(db, lang, slug):
+    """Resuelve un blog por el slug de cualquier idioma o el slug legacy."""
+    query = text(
+        "SELECT * FROM blogs WHERE slug_en = :s OR slug_es = :s "
+        "OR slug_nl = :s OR slug = :s LIMIT 1"
+    )
+    row = db.execute(query, {"s": slug}).fetchone()
+    if not row:
+        return None
+    m = row._mapping
+    data = _filter_row_lang(m, lang)
+    _attach_service_slugs(m, data, lang)
+    return data
