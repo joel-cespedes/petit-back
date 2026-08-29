@@ -20,6 +20,12 @@ CREATE TABLE admin_users (
 
 CREATE TABLE home_page (
     id SERIAL PRIMARY KEY,
+    seo_title_en VARCHAR(255),
+    seo_title_es VARCHAR(255),
+    seo_title_nl VARCHAR(255),
+    seo_description_en TEXT,
+    seo_description_es TEXT,
+    seo_description_nl TEXT,
 
     -- Hero Section
     hero_title_en TEXT,
@@ -168,6 +174,12 @@ CREATE TABLE home_page (
 
 CREATE TABLE services_page (
     id SERIAL PRIMARY KEY,
+    seo_title_en VARCHAR(255),
+    seo_title_es VARCHAR(255),
+    seo_title_nl VARCHAR(255),
+    seo_description_en TEXT,
+    seo_description_es TEXT,
+    seo_description_nl TEXT,
 
     -- Page header
     page_title_en VARCHAR(255),
@@ -404,6 +416,12 @@ CREATE INDEX IF NOT EXISTS idx_partner_images_sort ON partner_images (sort_order
 
 CREATE TABLE about_page (
     id SERIAL PRIMARY KEY,
+    seo_title_en VARCHAR(255),
+    seo_title_es VARCHAR(255),
+    seo_title_nl VARCHAR(255),
+    seo_description_en TEXT,
+    seo_description_es TEXT,
+    seo_description_nl TEXT,
 
     -- Page header
     page_title_en VARCHAR(255),
@@ -478,6 +496,12 @@ CREATE TABLE about_page (
 
 CREATE TABLE blog_page (
     id SERIAL PRIMARY KEY,
+    seo_title_en VARCHAR(255),
+    seo_title_es VARCHAR(255),
+    seo_title_nl VARCHAR(255),
+    seo_description_en TEXT,
+    seo_description_es TEXT,
+    seo_description_nl TEXT,
 
     page_title_en VARCHAR(255),
     page_title_es VARCHAR(255),
@@ -651,6 +675,7 @@ CREATE TABLE blog_tags (
 
 CREATE TABLE global_content (
     id SERIAL PRIMARY KEY,
+    site_name VARCHAR(255),
 
     -- Navbar
     nav_home_en VARCHAR(50),
@@ -827,6 +852,12 @@ INSERT INTO partners (name, logo_url, sort_order) VALUES
 -- Página de contacto editable (un solo registro, id = 1)
 CREATE TABLE IF NOT EXISTS contact_page (
     id SERIAL PRIMARY KEY,
+    seo_title_en VARCHAR(255),
+    seo_title_es VARCHAR(255),
+    seo_title_nl VARCHAR(255),
+    seo_description_en TEXT,
+    seo_description_es TEXT,
+    seo_description_nl TEXT,
 
     -- Cabecera de página (multi-idioma)
     page_title_en VARCHAR(200), page_title_es VARCHAR(200), page_title_nl VARCHAR(200),
