@@ -159,7 +159,11 @@ def verify_auth(username: str = Depends(verify_token)):
 @app.get("/api/home")
 def get_home(lang: str = Query("en"), db: Session = Depends(get_db)):
     validate_lang(lang)
-    return get_page_content(db, "home_page", lang)
+    data = get_page_content(db, "home_page", lang)
+    data["partner_images"] = get_dynamic_content(
+        db, "partner_images", lang, order_by="sort_order, id"
+    )
+    return data
 
 
 @app.get("/api/global")
@@ -774,6 +778,79 @@ def admin_delete_team_member(id: int, username: str = Depends(verify_token), db:
                 delete_old_image(row[field])
 
     db.execute(text("DELETE FROM team_members WHERE id = :id"), {"id": id})
+    db.commit()
+    return {"success": True}
+
+
+# =============================================
+# ADMIN ENDPOINTS - PARTNER IMAGES CRUD (Protected)
+# =============================================
+
+@app.get("/api/admin/partner-images")
+def admin_get_partner_images(username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Get all partner carousel images for admin"""
+    query = text("SELECT * FROM partner_images ORDER BY sort_order, id")
+    result = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
+
+
+@app.get("/api/admin/partner-images/{id}")
+def admin_get_partner_image(id: int, username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Get single partner image by ID"""
+    query = text("SELECT * FROM partner_images WHERE id = :id")
+    result = db.execute(query, {"id": id}).fetchone()
+    if not result:
+        raise HTTPException(status_code=404, detail="Partner image not found")
+    return dict(result._mapping)
+
+
+@app.post("/api/admin/partner-images")
+def admin_create_partner_image(
+    data: dict = Body(...),
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """Create new partner image"""
+    clean_update_data(data)
+    max_order = db.execute(text("SELECT COALESCE(MAX(sort_order), 0) FROM partner_images")).scalar()
+    data["sort_order"] = max_order + 1
+    columns = ", ".join(data.keys())
+    values = ", ".join([f":{key}" for key in data.keys()])
+    query = text(f"INSERT INTO partner_images ({columns}) VALUES ({values}) RETURNING id")
+    result = db.execute(query, data)
+    db.commit()
+    return {"success": True, "id": result.fetchone()[0]}
+
+
+@app.put("/api/admin/partner-images/{id}")
+def admin_update_partner_image(
+    id: int,
+    data: dict = Body(...),
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """Update partner image"""
+    cleanup_replaced_images(db, "partner_images", id, data)
+    clean_update_data(data)
+    set_clauses = ", ".join([f"{key} = :{key}" for key in data.keys()])
+    query = text(f"UPDATE partner_images SET {set_clauses}, updated_at = NOW() WHERE id = :id")
+    data["id"] = id
+    db.execute(query, data)
+    db.commit()
+    return {"success": True}
+
+
+@app.delete("/api/admin/partner-images/{id}")
+def admin_delete_partner_image(id: int, username: str = Depends(verify_token), db: Session = Depends(get_db)):
+    """Delete partner image"""
+    record = db.execute(text("SELECT * FROM partner_images WHERE id = :id"), {"id": id}).fetchone()
+    if record:
+        row = dict(record._mapping)
+        for field in IMAGE_FIELDS:
+            if field in row and row[field]:
+                delete_old_image(row[field])
+
+    db.execute(text("DELETE FROM partner_images WHERE id = :id"), {"id": id})
     db.commit()
     return {"success": True}
 

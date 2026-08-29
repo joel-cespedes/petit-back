@@ -386,6 +386,19 @@ CREATE TABLE IF NOT EXISTS team_members (
 
 CREATE INDEX IF NOT EXISTS idx_team_members_sort ON team_members (sort_order, id);
 
+-- Carrusel de imagenes de la seccion "Partner Network" en la home.
+-- Reemplaza a la columna unica home_page.partner_image (que se conserva).
+-- Ver migrations/003_partner_images.py
+CREATE TABLE IF NOT EXISTS partner_images (
+    id SERIAL PRIMARY KEY,
+    image_url TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_partner_images_sort ON partner_images (sort_order, id);
+
 CREATE TABLE about_page (
     id SERIAL PRIMARY KEY,
 
