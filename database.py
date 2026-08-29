@@ -121,3 +121,61 @@ def get_single_item(db, table_name: str, lang: str, slug: str):
             filtered[col] = value
 
     return filtered
+
+def _filter_row_lang(mapping, lang):
+    """Filtra una fila a un solo idioma (quita sufijos _en/_es/_nl)."""
+    data = {}
+    for col in mapping.keys():
+        if col in ('created_at', 'updated_at'):
+            continue
+        if col.endswith('_en') or col.endswith('_es') or col.endswith('_nl'):
+            continue
+        data[col] = mapping[col]
+    for col in mapping.keys():
+        if col.endswith(f'_{lang}'):
+            data[col[:-3]] = mapping[col]
+    return data
+
+
+def _attach_service_slugs(mapping, data, lang):
+    """Adjunta el mapa de slugs por idioma y el slug canonico del idioma actual."""
+    slug_map = {
+        'en': mapping['slug_en'] or mapping['slug'],
+        'es': mapping['slug_es'] or mapping['slug'],
+        'nl': mapping['slug_nl'] or mapping['slug'],
+    }
+    data['slugs'] = slug_map
+    data['slug'] = slug_map.get(lang) or mapping['slug']
+    data['slug_legacy'] = mapping['slug']
+    return data
+
+
+def get_services_list(db, lang, published_only=False):
+    """Lista de servicios en un idioma, incluyendo el mapa de slugs por idioma."""
+    query = "SELECT * FROM services"
+    if published_only:
+        query += " WHERE is_published = true"
+    query += " ORDER BY sort_order"
+    rows = db.execute(text(query)).fetchall()
+    items = []
+    for row in rows:
+        m = row._mapping
+        data = _filter_row_lang(m, lang)
+        _attach_service_slugs(m, data, lang)
+        items.append(data)
+    return items
+
+
+def get_service_by_slug(db, lang, slug):
+    """Resuelve un servicio por el slug de cualquier idioma o el slug legacy."""
+    query = text(
+        "SELECT * FROM services WHERE slug_en = :s OR slug_es = :s "
+        "OR slug_nl = :s OR slug = :s LIMIT 1"
+    )
+    row = db.execute(query, {"s": slug}).fetchone()
+    if not row:
+        return None
+    m = row._mapping
+    data = _filter_row_lang(m, lang)
+    _attach_service_slugs(m, data, lang)
+    return data

@@ -274,6 +274,9 @@ CREATE TABLE service_single_page (
 CREATE TABLE services (
     id SERIAL PRIMARY KEY,
     slug VARCHAR(255) NOT NULL UNIQUE,
+    slug_en VARCHAR(255),
+    slug_es VARCHAR(255),
+    slug_nl VARCHAR(255),
 
     -- Basic info (shown in services list /services)
     title_en VARCHAR(255),

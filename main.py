@@ -8,7 +8,7 @@ from typing import Optional
 import os
 import uuid
 import shutil
-from database import get_db, get_page_content, get_dynamic_content, get_single_item, engine
+from database import get_db, get_page_content, get_dynamic_content, get_single_item, get_services_list, get_service_by_slug, engine
 from auth import verify_password, create_token, verify_token, hash_password
 from dotenv import load_dotenv
 
@@ -219,13 +219,13 @@ def get_contact_page(lang: str = Query("en"), db: Session = Depends(get_db)):
 @app.get("/api/services")
 def get_services(lang: str = Query("en"), db: Session = Depends(get_db)):
     validate_lang(lang)
-    return get_dynamic_content(db, "services", lang, "is_published = true ORDER BY sort_order")
+    return get_services_list(db, lang, published_only=True)
 
 
 @app.get("/api/services/{slug}")
 def get_service(slug: str, lang: str = Query("en"), db: Session = Depends(get_db)):
     validate_lang(lang)
-    service = get_single_item(db, "services", lang, slug)
+    service = get_service_by_slug(db, lang, slug)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
     return service
@@ -664,6 +664,10 @@ def admin_create_service(
     db: Session = Depends(get_db)
 ):
     """Create new service"""
+    # La columna legacy `slug` es NOT NULL UNIQUE; si el admin solo envia
+    # slugs por idioma, la rellenamos con el ingles (o el primero disponible).
+    if not data.get("slug"):
+        data["slug"] = data.get("slug_en") or data.get("slug_nl") or data.get("slug_es") or ""
     max_order = db.execute(text("SELECT COALESCE(MAX(sort_order), 0) FROM services")).scalar()
     data["sort_order"] = max_order + 1
     columns = ", ".join(data.keys())
