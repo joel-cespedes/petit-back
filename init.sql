@@ -407,6 +407,7 @@ CREATE INDEX IF NOT EXISTS idx_team_members_sort ON team_members (sort_order, id
 CREATE TABLE IF NOT EXISTS partner_images (
     id SERIAL PRIMARY KEY,
     image_url TEXT NOT NULL DEFAULT '',
+    alt_text TEXT NOT NULL DEFAULT '',
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -881,6 +882,7 @@ CREATE TABLE IF NOT EXISTS contact_page (
     email_mailto VARCHAR(200),    -- email mostrado en el botón mailto
     whatsapp_number VARCHAR(50),  -- número internacional sin '+' ni espacios, p.ej. 34123456789
     linkedin_url VARCHAR(500),
+    cal_url TEXT,                -- enlace de reserva Cal.com (CTA en /contact)
     phone VARCHAR(50),
     address_en VARCHAR(300), address_es VARCHAR(300), address_nl VARCHAR(300),
 
