@@ -438,11 +438,10 @@ def submit_contact(data: ContactMessage, db: Session = Depends(get_db)):
     to_email = (row[0] if row else None) or os.getenv("CONTACT_FALLBACK_EMAIL")
 
     email_sent = False
-    _err = None
     if to_email:
         email_sent, _err = send_contact_email(to_email, data.name, data.email, data.message)
 
-    return {"success": True, "email_sent": email_sent, "email_error": _err, "to": to_email}
+    return {"success": True, "email_sent": email_sent}
 
 
 # =============================================
