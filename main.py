@@ -364,8 +364,54 @@ class ContactMessage(BaseModel):
     captcha_answer: int
 
 
+def _send_via_smtp(to_email, name, from_email, message):
+    """Envia el aviso por SMTP (p.ej. Hostinger). Devuelve (ok, error)."""
+    import smtplib
+    import ssl
+    from email.message import EmailMessage
+
+    host = os.getenv("SMTP_HOST")
+    user = os.getenv("SMTP_USER")
+    pw = os.getenv("SMTP_PASS")
+    port = int(os.getenv("SMTP_PORT", "465") or "465")
+    if not (host and user and pw):
+        return False, "SMTP not configured"
+
+    msg = EmailMessage()
+    msg["Subject"] = f"New contact message from {name}"
+    msg["From"] = user
+    msg["To"] = to_email
+    msg["Reply-To"] = from_email
+    msg.set_content(f"Name: {name}\nEmail: {from_email}\n\n{message}")
+    msg.add_alternative(
+        f"<h2>New contact form submission</h2>"
+        f"<p><strong>Name:</strong> {name}</p>"
+        f"<p><strong>Email:</strong> {from_email}</p>"
+        f"<p><strong>Message:</strong></p><p>{message}</p>",
+        subtype="html",
+    )
+    try:
+        ctx = ssl.create_default_context()
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=20, context=ctx) as s:
+                s.login(user, pw)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(host, port, timeout=20) as s:
+                s.starttls(context=ctx)
+                s.login(user, pw)
+                s.send_message(msg)
+        return True, None
+    except Exception as e:
+        return False, f"SMTP error: {e}"
+
+
 def send_contact_email(to_email: str, name: str, from_email: str, message: str):
-    """Send the contact form notification via Resend. Returns (ok, error)."""
+    """Envia el aviso del formulario. Prefiere SMTP (Hostinger) si esta
+    configurado; si no, usa Resend. Devuelve (ok, error)."""
+    if os.getenv("SMTP_HOST") and os.getenv("SMTP_USER") and os.getenv("SMTP_PASS"):
+        return _send_via_smtp(to_email, name, from_email, message)
+
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
         return False, "RESEND_API_KEY not configured"
